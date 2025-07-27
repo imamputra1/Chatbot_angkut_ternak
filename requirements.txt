@@ -1,0 +1,18 @@
+# requirements.txt
+
+# Core Framework
+fastapi
+uvicorn[standard]
+
+# Background Tasks & Broker
+celery
+redis
+
+# Google Sheets API
+gspread
+oauth2client
+google-api-python-client
+
+# Utilities
+python-dotenv
+httpx
