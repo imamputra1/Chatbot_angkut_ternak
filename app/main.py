@@ -30,16 +30,11 @@ async def check_and_reply_status(phone_number: str):
     """Mencari pesanan dan membalas dengan statusnya."""
     order = find_order_by_phone(phone_number)
     if order:
-        # Mengambil data biaya dari sheet
+        # Mengambil data biaya dan driver dari sheet
         biaya = order.get('Biaya pengiriman')
-        
-        # Logika baru untuk menampilkan biaya atau notifikasi jadwal
-        if biaya:
-            biaya_text = f"Biaya Pengiriman: Rp {biaya}"
-        else:
-            biaya_text = "Biaya Pengiriman: Jadwal sedang dibuat"
+        driver = order.get('Nama Driver')
 
-        # Membangun pesan balasan dengan semua detail yang diminta
+        # Membangun pesan balasan dasar
         status_message = (
             f"Status Pesanan Anda:\n\n"
             f"Nama: {order.get('Nama_Peternak')}\n"
@@ -47,15 +42,23 @@ async def check_and_reply_status(phone_number: str):
             f"Tanggal Diajukan: {order.get('Tanggal yang diajukan')}\n"
             f"Lokasi Jemput: {order.get('Lokasi Jemput')}\n"
             f"Lokasi Tujuan: {order.get('Lokasi Tujuan')}\n"
-            f"Status: *{order.get('Status')}*\n"
-            f"{biaya_text}"
+            f"Status: *{order.get('Status')}*"
         )
+
+        # Tambahkan baris Driver HANYA JIKA admin sudah mengisinya
+        if driver:
+            status_message += f"\nNama Driver: {driver}"
+        
+        # Tambahkan baris biaya atau notifikasi jadwal
+        if biaya:
+            status_message += f"\nBiaya Pengiriman: Rp {biaya}"
+        else:
+            status_message += "\nBiaya Pengiriman: Akan diinfokan setelah jadwal dikonfirmasi."
 
         await send_whatsapp_message(phone_number, status_message)
     else:
         not_found_message = "Maaf, tidak ada pesanan dari nomor Anda."
-        await send_whatsapp_message(phone_number, not_found_message)
-# --- Endpoint & Logic ---
+        await send_whatsapp_message(phone_number, not_found_message)# --- Endpoint & Logic ---
 
 @app.get("/")
 def read_root():
