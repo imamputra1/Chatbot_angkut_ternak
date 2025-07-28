@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request, Response, HTTPException
 from dotenv import load_dotenv
 
 # NEW: Kita siapkan impor untuk langkah selanjutnya, tapi kita beri komentar dulu
-from gsheets_client import find_order_by_phone, write_order
+from .gsheets_client import find_order_by_phone, write_order
 
 # --- Setup Awal ---
 load_dotenv()
@@ -25,30 +25,36 @@ user_sessions = {}
 # --- Helper Functions ---
 
 # NEW: Fungsi terpisah untuk logika pengecekan status
+# app/main.py -> check_and_reply_status
 async def check_and_reply_status(phone_number: str):
     """Mencari pesanan dan membalas dengan statusnya."""
-    print(f"Mencari pesanan untuk nomor: {phone_number}")
-    
-    # TODO: Panggil fungsi dari gsheets_client.py saat sudah siap
-    # Untuk sekarang, kita simulasikan hasilnya
-    # order = find_order_by_phone(phone_number) 
-    order = None # Hapus baris ini saat gsheets_client sudah siap
-
+    order = find_order_by_phone(phone_number)
     if order:
-        # Jika pesanan ditemukan
+        # Mengambil data biaya dari sheet
+        biaya = order.get('Biaya pengiriman')
+        
+        # Logika baru untuk menampilkan biaya atau notifikasi jadwal
+        if biaya:
+            biaya_text = f"Biaya Pengiriman: Rp {biaya}"
+        else:
+            biaya_text = "Biaya Pengiriman: Jadwal sedang dibuat"
+
+        # Membangun pesan balasan dengan semua detail yang diminta
         status_message = (
-            f"Pesanan Anda ditemukan:\n\n"
-            f"Nama: {order.get('Nama')}\n"
-            f"Jenis Hewan: {order.get('Jenis Hewan')}\n"
-            f"Jadwal: {order.get('Jadwal')}\n"
-            f"Status: *{order.get('Status')}*"
+            f"Status Pesanan Anda:\n\n"
+            f"Nama: {order.get('Nama_Peternak')}\n"
+            f"Jenis Ternak: {order.get('Jenis_Ternak')}\n"
+            f"Tanggal Diajukan: {order.get('Tanggal yang diajukan')}\n"
+            f"Lokasi Jemput: {order.get('Lokasi Jemput')}\n"
+            f"Lokasi Tujuan: {order.get('Lokasi Tujuan')}\n"
+            f"Status: *{order.get('Status')}*\n"
+            f"{biaya_text}"
         )
+
         await send_whatsapp_message(phone_number, status_message)
     else:
-        # Jika pesanan tidak ditemukan
-        not_found_message = "Maaf, tidak ada pesanan dari nomor Anda. Silakan hubungi admin kami jika terjadi kesalahan."
+        not_found_message = "Maaf, tidak ada pesanan dari nomor Anda."
         await send_whatsapp_message(phone_number, not_found_message)
-
 # --- Endpoint & Logic ---
 
 @app.get("/")
@@ -133,20 +139,16 @@ async def handle_message(request: Request):
 
                 elif current_step == 'awaiting_datetime':
                     session['data']['jadwal'] = msg_body
-                    
-                    # PENTING: Tambahkan nomor HP ke data yang akan disimpan
                     session['data']['nomor_hp'] = from_number
-
-                    # --- FINALISASI ---
                     order_data = session['data']
                     summary_text = (
-                        f"Pesanan baru telah dikonfirmasi:\n\n"
-                        f"Nama: {order_data.get('nama')}\n"
-                        f"Jenis Hewan: {order_data.get('jenis_hewan')}\n"
+                        f"Pesanan Baru via WhatsApp:\n\n"
+                        f"Nama Peternak: {order_data.get('nama')}\n"
+                        f"Jenis Ternak: {order_data.get('jenis_hewan')}\n"
                         f"Lokasi Jemput: {order_data.get('lokasi_jemput')}\n"
                         f"Lokasi Tujuan: {order_data.get('lokasi_tujuan')}\n"
-                        f"Jadwal: {order_data.get('jadwal')}\n"
-                        f"Dari No HP: {order_data.get('nomor_hp')}"
+                        f"Jadwal Diajukan: {order_data.get('jadwal')}\n"
+                        f"Nomor HP: {order_data.get('nomor_hp')}"
                     )
                     
                     # Kirim konfirmasi ke pengguna
